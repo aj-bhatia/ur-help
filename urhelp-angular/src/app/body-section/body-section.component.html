@@ -1,0 +1,11 @@
+<form [formGroup]="checkoutForm" (ngSubmit)="onEnable()">
+    <div>
+      <label for="phone_number">
+        Phone Number
+      </label>
+      <input id="phone_number" type="text" formControlName="phone_number">
+    </div>
+  
+    <button class="button" type="submit">Enable Notifications</button>
+  
+</form>
