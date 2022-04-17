@@ -1,56 +1,23 @@
 import os
 from flask import Flask, render_template, abort, request, jsonify
-from threading import Thread
-from firebase_admin import credentials, firestore, initialize_app
 from twilio.rest import Client
+from replit import db
 
-# Initialize Firestore DB
-cred = credentials.Certificate('key.json')
-default_app = initialize_app(cred)
-db = firestore.client()
-todo_ref = db.collection('todos')
-
-# Find your Account SID and Auth Token at twilio.com/console
-# and set the environment variables. See http://twil.io/secure
-account_sid = 'ACba081a875c23d6123891580da13da27c'
-auth_token = '0d581ecedd0ec90098a4f71d8dbe7df5'
+account_sid = os.environ['TWILIO_ACCOUNT_SID']
+auth_token = os.environ['TWILIO_AUTH_TOKEN']
 client = Client(account_sid, auth_token)
 
 app = Flask(__name__)
 IS_DEV = app.env == 'development'
 
 @app.route('/', methods=['GET'])
-@app.route('/index/')
 def main():
     try:
-        print(1)
-        return render_template('index.html')
-    except IndexError:
-        abort(404)
-    
-
-@app.route('/project/')
-def aboutProject():
-    try:
         return render_template('index.html')
     except IndexError:
         abort(404)
 
-@app.route('/aboutus/')
-def aboutus():
-    try:
-        return render_template('index.html')
-    except IndexError:
-        abort(404)
-
-@app.route('/join/')
-def join():
-    try:
-        return render_template('index.html')
-    except IndexError:
-        abort(404)
-
-@app.route('/add', methods=['POST'])
+@app.route('/add')
 def create():
     """
         create() : Add document to Firestore collection with request body
@@ -58,54 +25,45 @@ def create():
         e.g. json={'id': '1', 'title': 'Write a blog post'}
     """
     try:
-        id = request.json['id']
-        todo_ref.document(id).set(request.json)
+        number = '+'+request.args.get('number')[1:]
+        db[number]=True
+        message = client.messages \
+            .create(
+                body='Thank you for joining URhelp! You will now receive updates about Red Alerts in Ukraine!',
+                from_='+17194276351',
+                to=number
+                )
         return jsonify({"success": True}), 200
     except Exception as e:
         return f"An Error Occured: {e}"
 
-@app.route('/list', methods=['GET'])
-def read():
+@app.route('/delete', methods=['GET', 'DELETE'])
+def delete():
     """
-        read() : Fetches documents from Firestore collection as JSON
-        todo : Return document that matches query ID
-        all_todos : Return all documents    """
+        delete() : Delete a document from Firestore collection    """
     try:
-        # Check if ID was passed to URL query
-        todo_id = request.args.get('phoneNumbers')    
-        if todo_id:
-            todo = todo_ref.document(todo_id).get()
-            return jsonify(todo.to_dict()), 200
-        else:
-            all_todos = [doc.to_dict() for doc in todo_ref.stream()]
-            return jsonify(all_todos), 200
-    except Exception as e:
-        return f"An Error Occured: {e}"
-
-@app.route('/update', methods=['POST', 'PUT'])
-def update():
-    """
-        update() : Update document in Firestore collection with request body
-        Ensure you pass a custom ID as part of json body in post request
-        e.g. json={'id': '1', 'title': 'Write a blog post today'}
-    """
-    try:
-        id = request.json['id']
-        todo_ref.document(id).update(request.json)
+        # Check for ID in URL query
+        number = request.args.get('number')
+        del db[number]
         return jsonify({"success": True}), 200
     except Exception as e:
         return f"An Error Occured: {e}"
 
-@app.route('/send', methods=['POST', 'PUT'])
-def send(msg):
+@app.route('/send')
+def preSend():
+    msg = request.args.get("location")
+    link = request.args.get("link")
+    return send(msg, link)
+    
+def send(msg, link):
     try:
-        numbers = read()
-        # for loop here with call to read() and put that val in the 'to' spot
+      print(db.keys())
+      for i in db:
         message = client.messages \
                 .create(
-                     body=str(msg[0]) + ' If you would like to learn more: ' + str(msg[1]),
+                     body=msg+' If you would like to learn more: '+link,
                      from_='+17194276351',
-                     to='+19493573519'
+                     to=i
                  )
         return jsonify({"success": True}), 200
     except Exception as e:
